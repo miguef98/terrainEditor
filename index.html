@@ -1,0 +1,37 @@
+<doctype html>
+<html>
+<head>
+    <title> FINAL FCG </title>
+    <link href="style.css" rel="stylesheet">
+    <script src="node_modules/mathjs/lib/browser/math.js" type="text/javascript"></script>
+    <script type="text/javascript" id="includedscript" src="boxdrawer.js"></script>
+    <script type="text/javascript" id="includedscript" src="terraindrawer.js"></script>
+    <script type="text/javascript" id="includedscript" src="test.js"></script>
+    <script type="text/javascript" id="includedscript" src="objmesh.js"></script>
+    <script type="text/javascript" id="includedscript" src="project.js"></script>
+</head>
+
+<body onresize="WindowResize()">
+    <!-- canvas (WebGL)-->
+    <div id="canvas-div"><canvas id="canvas"></canvas></div><div id="controls-div">
+    <!-- menu y controles-->
+    <div id="controls">
+        <div class="control-group">
+            <div class="control"><button type="button" disabled onclick="document.getElementById('botonVista').disabled=true;document.getElementById('botonEditor').disabled=false;SetViewMode();" class="fbutton" id="botonVista">1</button>
+                                 <button type="button" onclick="this.disabled=true;document.getElementById('botonVista').disabled=false;SetEditorMode();" class="fbutton" id="botonEditor">2</button></div>
+            <div class="control"><input id="show-box" name="show-box" type="checkbox" onchange="DrawScene()" checked /><label for="show-box"> Mostrar caja</label></div>
+            <!--div class="control"><span id="waterLevel-label">Nivel del agua:</span><span id="waterLevel-value"></span><input id="waterLevel-exp" type="range" min="0" max="100" value="0" oninput="SetWaterLevel(this)"/></div-->
+            <div class="control"><span id="shadowLevel-label">Nivel de sombreado:</span><span id="shadowLevel-value"></span><input id="shadowLevel-exp" type="range" min="0" max="100" value="2" oninput="SetShadowLevel(this)"/></div>
+            <div class="control"><span id="editorRadioLevel-label">Tamaño pincel:</span><span id="editorRadioLevel-value"></span><input id="editorLevel-exp" type="range" min="5" max="56" value="10" oninput="SetBrushSize(this)"/></div>
+        </div>
+        <div class="control-group">
+            <div class="control">Grilla:<br/><input id="obj" type="file" onchange="LoadObj(this)" accept=".obj"/></div>
+            <div class="control">Textura:<br/><input id="texture" type="file" onchange="LoadTexture(this)" accept="image/*"/></div>
+        </div>
+        <div class="control-group">
+            <img id="texture-img" />
+        </div>
+    </div>
+    </div>
+</body>
+</html>
