@@ -30,7 +30,7 @@ function InitWebGL()
 	
 	// Inicializar los shaders y buffers para renderizar	
 	boxDrawer  = new BoxDrawer();
-	terrDrawer = new TerrainDrawer();
+	terrDrawer = new TerrainDrawer(64, 64);
 	
 	// Setear el tamaño del viewport
 	UpdateCanvasSize();
@@ -311,22 +311,6 @@ function WindowResize()
 	DrawScene();
 }
 
-function LoadObj( param )
-{
-	if ( param.files && param.files[0] ) 
-	{
-		var reader = new FileReader();
-		reader.onload = function(e) 
-		{
-			var mesh = new ObjMesh;
-			mesh.parse( e.target.result );
-			var buffers = mesh.getVertexBuffers();
-			terrDrawer.setMesh( buffers.positionBuffer, buffers.texCoordBuffer, buffers.normalBuffer );
-			DrawScene();
-		}
-		reader.readAsText( param.files[0] );
-	}
-}
 function SetWaterLevel( level ){
 	terrDrawer.setWaterLevel(2 * (level.value / 100) - 1);
 	DrawScene();
@@ -354,6 +338,7 @@ function SetBrushSize( level ){
 	DrawScene();
 }
 
+/*
 // Cargar textura
 function LoadTexture( param )
 {
@@ -374,4 +359,4 @@ function LoadTexture( param )
 		reader.readAsDataURL( param.files[0] );
 	}
 
-}
+}*/
