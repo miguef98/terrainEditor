@@ -55,8 +55,8 @@ class TerrainDrawer
         this.lightNearPlane = 0.8;
         this.lightFarPlane = 4.75;
 
-        this.lightCameraMatrix   = GetModelViewMatrix( 0, 0, transZ, -1 * 0.18 * Math.PI, 0.55 * Math.PI );
-        this.lightProjection = MatrixMult( ProjectionMatrix( Math.PI / 3, 1, this.lightNearPlane, this.lightFarPlane), this.lightCameraMatrix);
+        var lightCameraMatrix   = GetModelViewMatrix( 0, 0, transZ, -1 * 0.18 * Math.PI, 0.55 * Math.PI );
+        this.lightProjection = MatrixMult( ProjectionMatrix( Math.PI / 3, 1, this.lightNearPlane, this.lightFarPlane), lightCameraMatrix);
 
         // variables para mapeo de sombras (depth map)
         this.DMProg = InitShaderProgram(zMapVS, zMapFS);
@@ -84,7 +84,7 @@ class TerrainDrawer
 
         this.a_vertPosCrsor = gl.getAttribLocation( this.MouseProg, 'pos' );
 
-        this.mouseDirection = [0, 0];
+        this.mouseDirection = [0, 0, 0];
         this.mouseColor = [-10, -10];
         this.mousePrecision = 0.01;
         this.brushSize = 0.1;
@@ -96,11 +96,58 @@ class TerrainDrawer
 
         this.inverseProjection = [];
 
-        //this.tester = new TestDrawer();
+        
+        // variables para mascara
 
+        this.maskProg = InitShaderProgram(maskVS, maskFS);
+        
+        var maskMatrix = GetModelViewMatrix( 0, 0, transZ, -1 * Math.PI / 2 , 0);
+        this.mvpMask = MatrixMult( OrthographicProjMatrix(-1, 1, -1, 1, -7, 7), maskMatrix);
+        
+        this.u_mvpMask = gl.getUniformLocation( this.maskProg, 'mvp' );
+        this.u_mouseColor = gl.getUniformLocation( this.maskProg, 'mouseColor' );
+        this.u_lastMask = gl.getUniformLocation( this.maskProg, 'lastMask' );
+        this.u_brushSizeMask = gl.getUniformLocation(this.maskProg, 'radio');
+        this.a_vertPosMask = gl.getAttribLocation( this.maskProg, 'pos' );
+        
+        this.currentMask = 0;
+        this.slotMask_1 = [gl.TEXTURE2, 2];
+        this.slotMask_2 = [gl.TEXTURE3, 3]; 
+        
+        this.maskSize = math.max([this.gridWidth, this.gridDepth]);
+        
+        this.t_mask_1 = gl.createTexture();        
+        this.framebufferMask_1 = gl.createFramebuffer();
+        this.renderbufferMask_1 = gl.createRenderbuffer();
+        this.initializeTextureWithValue(this.t_mask_1, this.maskSize, 128, this.slotMask_1[0]);
+        this.attachTextureToFB(this.framebufferMask_1, this.renderbufferMask_1, this.t_mask_1, this.maskSize);
+        
+        this.t_mask_2 = gl.createTexture();
+        this.framebufferMask_2 = gl.createFramebuffer();
+        this.renderbufferMask_2 = gl.createRenderbuffer();
+        // la segunda no necesito inicializarla con ningun valor, total vamos a sobreescribirla
+        this.initializeEmptyTexture(this.t_mask_2, this.maskSize, this.slotMask_2[0]);
+        this.attachTextureToFB(this.framebufferMask_2, this.renderbufferMask_2, this.t_mask_2, this.maskSize);
+        
+        this.tester = new TestDrawer();
 	}
+    
+    initializeTextureWithValue( texture, textureSize, value, textureSlot ){
+        gl.activeTexture( textureSlot );
+        gl.bindTexture(gl.TEXTURE_2D, texture);
 
-    initializeEmptyTexture(texture, textureSize, textureSlot = gl.TEXTURE0){
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
+            textureSize, textureSize, 0,
+            gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(textureSize * textureSize * 4).fill(value) );
+
+        // aplico flitros... nose bien para que sirve
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+
+    initializeEmptyTexture(texture, textureSize, textureSlot){
         gl.activeTexture( textureSlot );
         gl.bindTexture(gl.TEXTURE_2D, texture);
 
@@ -147,19 +194,19 @@ class TerrainDrawer
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
         gl.vertexAttribPointer( this.a_vertPosDM, 3 , gl.FLOAT, false, 0, 0 );
-
         gl.enableVertexAttribArray( this.a_vertPosDM );
-
+        gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer );
+        
         // render to our targetTexture by binding the framebuffer
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-
+        
         // seteo el viewport al tamaño de la textura
         gl.viewport( 0, 0, this.depthMapSize, this.depthMapSize);
-
+        
         gl.clearColor(1.0,1.0,1.0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT| gl.DEPTH_BUFFER_BIT);
-
-        gl.drawArrays( gl.TRIANGLES, 0, this.gridNumTriangles);
+        
+		gl.drawElements( gl.TRIANGLES, this.gridNumTriangles * 3, gl.UNSIGNED_SHORT, 0 );
 
         // desbindeo el framebuffer para que se renderize al canvas despues
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -177,8 +224,8 @@ class TerrainDrawer
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
         gl.vertexAttribPointer( this.a_vertPosCrsor, 3 , gl.FLOAT, false, 0, 0 );
-
         gl.enableVertexAttribArray( this.a_vertPosCrsor );
+		gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer );
 
         // render to our targetTexture by binding the framebuffer
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebufferMouse);
@@ -189,7 +236,7 @@ class TerrainDrawer
         gl.clearColor(1.0,1.0,1.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT| gl.DEPTH_BUFFER_BIT);
 
-        gl.drawArrays( gl.TRIANGLES, 0, this.gridNumTriangles);
+        gl.drawElements( gl.TRIANGLES, this.gridNumTriangles * 3, gl.UNSIGNED_SHORT, 0 );
 
         var pixels = new Uint8Array(this.cursorMapSize * this.cursorMapSize * 4);
         gl.readPixels(0, 0, this.cursorMapSize, this.cursorMapSize, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
@@ -219,64 +266,43 @@ class TerrainDrawer
         }
     }
 
-    /*
     paint(){
+        // si el mouse no esta sobre nada no pinto...
         if(this.mouseColor[0] == -10) return;
 
-        var maxValue = 10;
-        
-        var xHMap = Math.floor(this.mouseColor[0] * this.heightMapSize);
-        var yHMap = Math.floor(this.mouseColor[1] * this.heightMapSize);
-        
-        var offsetTexX = Math.min( this.heightMapSize * this.brushSize , this.heightMapSize - xHMap);
-        var offsetTexY = Math.min( this.heightMapSize * this.brushSize , this.heightMapSize - yHMap);
-        var offsetTexMX = Math.min( this.heightMapSize * this.brushSize , xHMap);
-        var offsetTexMY = Math.min( this.heightMapSize * this.brushSize , yHMap);
-        
-        var width = math.floor(offsetTexX + offsetTexMX) + 1;
-        var height = math.floor(offsetTexY + offsetTexMY) + 1;
+        gl.useProgram( this.maskProg );
 
+        gl.uniformMatrix4fv( this.u_mvpMask, false, this.mvpMask);
+        gl.uniform4fv(this.u_mouseColor, new Float32Array([this.mouseColor[0], 0.0, this.mouseColor[1], 1.0]));
+        gl.uniform1i(this.u_lastMask, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
+        gl.uniform1f(this.u_brushSizeMask, this.brushSize);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
+		gl.vertexAttribPointer( this.a_vertPosMask, 3 , gl.FLOAT, false, 0, 0 );
+        gl.enableVertexAttribArray( this.a_vertPosMask );
+		gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer );
+
+        // render to our targetTexture by binding the framebuffer
+        var currFramebuffer = this.currentMask == 0 ? this.framebufferMask_2 : this.framebufferMask_1;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, currFramebuffer);
         
-        var pixels = new Uint8Array(width * height * 4);
+        // seteo el viewport al tamaño de la textura
+        gl.viewport( 0, 0, this.maskSize, this.maskSize);
         
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebufferHMap);
-        gl.readPixels(xHMap - offsetTexMX, yHMap - offsetTexMY, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        gl.clearColor(1.0,1.0,1.0, 0.0);
+        gl.clear(gl.COLOR_BUFFER_BIT| gl.DEPTH_BUFFER_BIT);
+        
+		gl.drawElements( gl.TRIANGLES, this.gridNumTriangles * 3, gl.UNSIGNED_SHORT, 0 );
+
+        // desbindeo el framebuffer para que se renderize al canvas despues
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        // seteo nuevamente el viewport al tamaño del canvas para no tener que estar despues preocupandome
+        gl.viewport( 0, 0, gl.canvas.width, gl.canvas.height);
         
-        var sqRadio = math.pow(this.heightMapSize * this.brushSize, 2);
-        var startX = math.floor(xHMap - offsetTexMX);
-        var x = startX;
-        var y = math.floor(yHMap - offsetTexMY);
-        var lastSqDistOfRow = math.pow(xHMap - x, 2) + math.pow(yHMap - y, 2) - 2*(yHMap - y) + 1;
-        var lastActualSqDist;
+        this.currentMask = this.currentMask == 0 ? 1 : 0;
 
-        for(var i = 0 ; i < pixels.length ; i += 4){
-            var sqDist;
-            if( (x - startX) == width || (x - startX) == 0){
-                sqDist = lastSqDistOfRow - 2*(yHMap - y) + 1;
-                lastSqDistOfRow = sqDist;
-                x = startX + 1;
-                if(i != 0) y += 1;
-
-            } else{                
-                sqDist = lastActualSqDist - 2*(xHMap - x) + 1;
-                x += 1;
-            }
-
-            var offset = math.floor(maxValue * (math.max(sqRadio - sqDist, 0) / sqRadio));
-
-            pixels[i] = math.min( pixels[i] + offset, 255);
-            pixels[i+1] = math.min( pixels[i+1] + offset, 255);
-            pixels[i+2] = math.min( pixels[i+2] + offset, 255);
-            
-            lastActualSqDist = sqDist;
-        }
-
-        gl.activeTexture(this.hMapSlot[0]);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, xHMap - offsetTexMX, yHMap - offsetTexMY, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-        this.renderDepthMap(this.lightProjection, this.lightNearPlane, this.lightFarPlane, this.framebufferDM);
-    } */
+        // ..
+    }
 
     generateGrid(){
         const startX = -1 * this.gridWidth * this.gridDensity / 2 + this.gridDensity / 2;
@@ -346,7 +372,6 @@ class TerrainDrawer
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indices), gl.STATIC_DRAW);
 
-
     }
 
     setShadowLevel( level ){
@@ -383,13 +408,14 @@ class TerrainDrawer
     }
 
     draw( mvp, mv, mn, perspectiveMatrix11 ){
-      
-
+              
         if(this.editorMode && this.mouseUpdate){
             this.renderMouse(MatrixMult(perspectiveMatrix11, mv), mv);
-            this.mouseUpdate = false;
+            //this.mouseUpdate = false;
+            this.tester.draw(mvp, this.currentMask == 0? this.slotMask_2[1] : this.slotMask_2[1]);
+            return;
         }
-
+        
         gl.useProgram( this.terrProg );
 
 		gl.uniformMatrix4fv( this.u_mvp, false, mvp );
@@ -616,5 +642,38 @@ var colorPickFS = `
 
     void main(){
         gl_FragColor = getColorPoint(v_pos, v_color);
+    }
+`;
+
+var maskVS = `
+    attribute vec3 pos;
+
+    uniform mat4 mvp;
+
+    varying vec4 v_color;
+
+    void main(){
+        vec4 vertex = mvp * vec4(pos.xyz ,1.0);
+        gl_Position = vertex;
+
+        v_color = vec4(pos.xyz ,1.0) / 2.0 + 0.5;
+    }
+`;
+
+
+var maskFS = `
+    precision mediump float;
+
+    uniform sampler2D lastMask;
+    uniform vec4 mouseColor;
+    uniform float radio;
+
+    varying vec4 v_color;
+
+    void main(){
+        // algo por el estilo
+        float eps = 10.0;
+        float d = distance(mouseColor.xz, v_color.xz);
+        gl_FragColor = texture2D(lastMask, v_color.xz) + (1.0 - step(radio, d)) * vec4(d,d,d, 1.0) * 0.001;
     }
 `;

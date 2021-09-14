@@ -73,6 +73,15 @@ function ProjectionMatrix (fieldOfViewInRadians, aspectRatio, near, far) {
 	];
 }
 
+function OrthographicProjMatrix(left, right, bottom, top, near, far) {
+	return [
+		2 / (right - left) ,0,0, 0,
+		0,2 / (top - bottom),0,0,
+		0,0,-2 / (far - near),0,
+		-1 * (right + left) / (right - left), -1 * (top + bottom) / (top - bottom), -1 * (far + near) / (far - near),1
+	];
+}
+
 // Devuelve la matriz de perspectiva (column-major)
 function UpdateProjectionMatrix()
 {
@@ -143,11 +152,10 @@ function DrawScene()
 {
 	var mv  = GetModelViewMatrix( 0, 0, transZ, rotX, rotY );
 	var mvp = MatrixMult( perspectiveMatrix, mv );
-
-
+	
 	gl.clearColor(0.255,0.255,0.255,1);
 	gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
-
+	
 	var nrmTrans = [ mv[0],mv[1],mv[2], mv[4],mv[5],mv[6], mv[8],mv[9],mv[10] ];
 	terrDrawer.draw(mvp, mv, nrmTrans, ProjectionMatrix(Math.PI / 3, 1, nearPlane, farPlane) );
 	if ( showBox.checked ) {

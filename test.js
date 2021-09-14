@@ -62,6 +62,9 @@ class TestDrawer
 		gl.vertexAttribPointer( this.texCoords, 2 , gl.FLOAT, false, 0, 0 );
 		gl.enableVertexAttribArray( this.texCoords );
 
+		gl.clearColor(1,1,1,1);
+		gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
+
 		gl.drawArrays( gl.TRIANGLES, 0, 6 );
 
 	}
