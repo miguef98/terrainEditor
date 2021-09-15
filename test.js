@@ -48,9 +48,7 @@ class TestDrawer
 	{
 		gl.useProgram( this.prog );
 		
-        gl.uniform1i(this.sampler, textureSlot);
-
-        
+        gl.uniform1i(this.sampler, textureSlot);        
 	    
 		gl.uniformMatrix4fv( this.mvp, false, mvp );
 		
@@ -61,9 +59,6 @@ class TestDrawer
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
 		gl.vertexAttribPointer( this.texCoords, 2 , gl.FLOAT, false, 0, 0 );
 		gl.enableVertexAttribArray( this.texCoords );
-
-		gl.clearColor(1,1,1,1);
-		gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
 
 		gl.drawArrays( gl.TRIANGLES, 0, 6 );
 

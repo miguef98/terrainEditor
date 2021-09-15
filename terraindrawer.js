@@ -9,6 +9,7 @@ class TerrainDrawer
 
         // uniformes shader terrain
 		this.u_mvp = gl.getUniformLocation( this.terrProg, 'mvp' );
+        this.u_mask = gl.getUniformLocation(this.terrProg, 'mask');
         this.u_mv = gl.getUniformLocation( this.terrProg, 'mv' );
         this.u_mn = gl.getUniformLocation( this.terrProg, 'mn' );
         this.u_lightMVP = gl.getUniformLocation( this.terrProg, 'lightMVP');
@@ -62,6 +63,7 @@ class TerrainDrawer
         this.DMProg = InitShaderProgram(zMapVS, zMapFS);
 
         this.u_mvpDM = gl.getUniformLocation( this.DMProg, 'mvp' );
+        this.u_maskDM = gl.getUniformLocation(this.DMProg, 'mask');
         this.u_nearDM = gl.getUniformLocation(this.DMProg, 'near');
         this.u_farDM = gl.getUniformLocation(this.DMProg, 'far');
 
@@ -78,6 +80,7 @@ class TerrainDrawer
         this.MouseProg = InitShaderProgram(colorPickVS, colorPickFS);
 
         this.u_mvpCrsor = gl.getUniformLocation( this.MouseProg, 'mvp' );
+        this.u_maskCrsor = gl.getUniformLocation(this.MouseProg, 'mask');
         this.u_mvCrsor = gl.getUniformLocation( this.MouseProg, 'mv' );
         this.u_mouseDirCrsor = gl.getUniformLocation(this.MouseProg, 'mouseDirection');
         this.u_radioCrsor = gl.getUniformLocation(this.MouseProg, 'radio');
@@ -191,6 +194,7 @@ class TerrainDrawer
         gl.uniformMatrix4fv( this.u_mvpDM, false, mvp);
         gl.uniform1f(this.u_nearDM, near);
         gl.uniform1f(this.u_farDM, far);
+        gl.uniform1i(this.u_maskDM, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
         gl.vertexAttribPointer( this.a_vertPosDM, 3 , gl.FLOAT, false, 0, 0 );
@@ -221,6 +225,7 @@ class TerrainDrawer
         gl.uniformMatrix4fv( this.u_mvCrsor, false, mv);
         gl.uniform3fv(this.u_mouseDirCrsor, this.mouseDirection);
         gl.uniform1f(this.u_radioCrsor, this.mousePrecision);
+        gl.uniform1i(this.u_maskCrsor, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
         gl.vertexAttribPointer( this.a_vertPosCrsor, 3 , gl.FLOAT, false, 0, 0 );
@@ -268,12 +273,16 @@ class TerrainDrawer
 
     paint(){
         // si el mouse no esta sobre nada no pinto...
-        if(this.mouseColor[0] == -10) return;
+        if(this.mouseColor[0] == -10) {
+            console.log("no esta sobre grilla");
+            return;
+        }
 
         gl.useProgram( this.maskProg );
 
         gl.uniformMatrix4fv( this.u_mvpMask, false, this.mvpMask);
         gl.uniform4fv(this.u_mouseColor, new Float32Array([this.mouseColor[0], 0.0, this.mouseColor[1], 1.0]));
+        // la currentMask es de la que tengo que leer
         gl.uniform1i(this.u_lastMask, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
         gl.uniform1f(this.u_brushSizeMask, this.brushSize);
 
@@ -282,7 +291,7 @@ class TerrainDrawer
         gl.enableVertexAttribArray( this.a_vertPosMask );
 		gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer );
 
-        // render to our targetTexture by binding the framebuffer
+        // renderizo en la textura que no es de la que lei
         var currFramebuffer = this.currentMask == 0 ? this.framebufferMask_2 : this.framebufferMask_1;
         gl.bindFramebuffer(gl.FRAMEBUFFER, currFramebuffer);
         
@@ -299,9 +308,9 @@ class TerrainDrawer
         // seteo nuevamente el viewport al tamaño del canvas para no tener que estar despues preocupandome
         gl.viewport( 0, 0, gl.canvas.width, gl.canvas.height);
         
+        // la currentmask pasa a ser la nueva
+        console.log(this.currentMask);
         this.currentMask = this.currentMask == 0 ? 1 : 0;
-
-        // ..
     }
 
     generateGrid(){
@@ -412,7 +421,7 @@ class TerrainDrawer
         if(this.editorMode && this.mouseUpdate){
             this.renderMouse(MatrixMult(perspectiveMatrix11, mv), mv);
             //this.mouseUpdate = false;
-            this.tester.draw(mvp, this.currentMask == 0? this.slotMask_2[1] : this.slotMask_2[1]);
+            this.tester.draw(mvp, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
             return;
         }
         
@@ -433,6 +442,7 @@ class TerrainDrawer
         if(this.editorMode) gl.uniform1f(this.u_editorMode, 1.0);
         else gl.uniform1f(this.u_editorMode, 0.0);
 
+        gl.uniform1i(this.u_mask, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
         gl.uniform1i(this.u_depMap, this.depMapSlot[1]);
         gl.uniform1i(this.u_cursorMap, this.cursorDepMapSlot[1]);
 
@@ -454,6 +464,7 @@ var terrVS = `
 	attribute vec3 pos;
     attribute vec3 norm;
 
+    uniform sampler2D mask;
 	uniform mat4 mvp;
     uniform mat4 mv;
     uniform mat4 lightMVP;
@@ -466,10 +477,12 @@ var terrVS = `
 
 	void main()
 	{
-        vec4 vertex = vec4( pos.xyz ,1.0);
+        vec2 texCoords = pos.xz / 2.0 + 0.5;
+        vec4 heightMask = vec4(0.0,texture2D(mask, texCoords).r - 0.5, 0.0, 0.0);
+        vec4 vertex = vec4( pos.xyz ,1.0) + 0.0 * heightMask;
 		gl_Position = mvp * vertex;
 
-        v_texCoord = pos.xz / 2.0 + 0.5;
+        v_texCoord = texCoords;
         v_vertCoord = vertex;
 		v_normCoord = normalize(norm);
         v_lightVertCoord = lightMVP * vertex;
@@ -567,12 +580,15 @@ var terrFS = `
 var zMapVS = `
     attribute vec3 pos;
 
+    uniform sampler2D mask;
     uniform mat4 mvp;
 
     varying vec4 v_pos;
 
     void main(){
-        vec4 vertex = mvp * vec4(pos.xyz ,1.0);
+        vec2 texCoords = pos.xz / 2.0 + 0.5;
+        vec4 heightMask = vec4(0.0, texture2D(mask, texCoords).r - 0.5 , 0.0, 0.0);
+        vec4 vertex = vec4( pos.xyz ,1.0) + 0.0 * heightMask;
         gl_Position = vertex;
 
         v_pos = vertex;
@@ -603,12 +619,15 @@ var colorPickVS = `
 
     uniform mat4 mvp;
     uniform mat4 mv;
+    uniform sampler2D mask;
 
     varying vec4 v_pos;
     varying vec4 v_color;
 
     void main(){
-        vec4 vertex = mvp * vec4(pos.xyz ,1.0);
+        vec2 texCoords = pos.xz / 2.0 + 0.5;
+        vec4 heightMask = vec4(0.0, texture2D(mask, texCoords).r -0.5 , 0.0, 0.0);
+        vec4 vertex = vec4( pos.xyz ,1.0) + 0.0 * heightMask;
         gl_Position = vertex;
 
         v_pos = mv * vec4(pos.xyz, 1.0);
@@ -672,8 +691,7 @@ var maskFS = `
 
     void main(){
         // algo por el estilo
-        float eps = 10.0;
         float d = distance(mouseColor.xz, v_color.xz);
-        gl_FragColor = texture2D(lastMask, v_color.xz) + (1.0 - step(radio, d)) * vec4(d,d,d, 1.0) * 0.001;
+        gl_FragColor = texture2D(lastMask, v_color.xz) + (1.0 - step(radio, d)) * (cos((3.1415 / radio) * d) / 2.0 + 0.5) * 0.05;
     }
 `;

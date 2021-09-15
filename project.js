@@ -304,7 +304,7 @@ function controlEditorMode(){
 			terrDrawer.paint();
 			DrawScene();
 		}
-		, 150);
+		, 50);
 	};
 
 	canvas.onmouseup = canvas.onmouseleave = function(){
