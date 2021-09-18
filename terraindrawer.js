@@ -26,54 +26,52 @@ class TerrainDrawer
         this.vertBuffer = gl.createBuffer();
         this.indexBuffer = gl.createBuffer();
 
-        this.a_normals = gl.getAttribLocation( this.terrProg, 'norm' );
-        this.normalBuffer = gl.createBuffer();
-
-        this.t_depthMap = gl.createTexture();
-
-        // unidades en las que voy a almacenar cada textura y el valor relativo a mi programa
+        
+        // unidades en las que voy a almacenar cada textura y el valor relativo al programa
         this.depMapSlot = [gl.TEXTURE0, 0];
         this.cursorDepMapSlot = [gl.TEXTURE1, 1];
-
+        
         this.gridDensity = 1 / 32;
         this.gridWidth = width + 1;
         this.gridDepth = depth + 1;
         this.gridNumTriangles = 2 * (this.gridWidth - 1) * (this.gridDepth - 1);
         this.grid = [];
         this.indices = [];
-        this.normals = [];
         this.generateGrid();
-        this.generateNormals();
         this.bufferGrid();
-
+        
         this.shadowEps = 0.02;
-
+        
         // Elegí esta dirección de la luz y la mantengo constante para todos los modelos.
         // Al rotar el modelo tambien se rota la luz de tal forma que siempre ilumina igual.
         this.lightSource = [0.6785297820884697, 0.7234815483374121, -0.12716832952537618];
-
+        
         // matrices de la luz (equivalentes a mv y mvp respectivamente)
-        this.lightNearPlane = 0.8;
-        this.lightFarPlane = 4.75;
-
+        this.lightNearPlane = -0.8;
+        this.lightFarPlane = 4.3;
+        
         var lightCameraMatrix   = GetModelViewMatrix( 0, 0, transZ, -1 * 0.18 * Math.PI, 0.55 * Math.PI );
         this.lightProjection = MatrixMult( ProjectionMatrix( Math.PI / 3, 1, this.lightNearPlane, this.lightFarPlane), lightCameraMatrix);
-
+        
         // variables para mapeo de sombras (depth map)
         this.DMProg = InitShaderProgram(zMapVS, zMapFS);
-
+        
+        this.depthMapSize = 4096;
+        this.t_depthMap = gl.createTexture();
         this.u_mvpDM = gl.getUniformLocation( this.DMProg, 'mvp' );
         this.u_maskDM = gl.getUniformLocation(this.DMProg, 'mask');
         this.u_nearDM = gl.getUniformLocation(this.DMProg, 'near');
         this.u_farDM = gl.getUniformLocation(this.DMProg, 'far');
-
+        
         this.a_vertPosDM = gl.getAttribLocation( this.DMProg, 'pos' );
 
         this.framebufferDM = gl.createFramebuffer();
         this.renderbufferDM = gl.createRenderbuffer();
 
-        this.depthMapSize = 4096;
-        this.cursorMapSize = 256;
+        this.initializeEmptyTexture(this.t_depthMap, this.depthMapSize, this.depMapSlot[0]);
+        this.attachTextureToFB(this.framebufferDM, this.renderbufferDM, this.t_depthMap, this.depthMapSize);
+
+        this.cursorMapSize = 64;
 
         // variables para ver cursor
 
@@ -89,7 +87,7 @@ class TerrainDrawer
 
         this.mouseDirection = [0, 0, 0];
         this.mouseColor = [-10, -10];
-        this.mousePrecision = 0.01;
+        this.mousePrecision = 0.03;
         this.brushSize = 0.1;
         this.framebufferMouse = gl.createFramebuffer();
         this.renderbufferMouse = gl.createRenderbuffer();
@@ -117,7 +115,7 @@ class TerrainDrawer
         this.slotMask_1 = [gl.TEXTURE2, 2];
         this.slotMask_2 = [gl.TEXTURE3, 3]; 
         
-        this.maskSize = math.max([this.gridWidth, this.gridDepth]);
+        this.maskSize = 2 * math.max([this.gridWidth, this.gridDepth]);
         
         this.t_mask_1 = gl.createTexture();        
         this.framebufferMask_1 = gl.createFramebuffer();
@@ -191,7 +189,7 @@ class TerrainDrawer
     renderDepthMap(mvp, near, far, framebuffer){
         gl.useProgram( this.DMProg );
 
-        gl.uniformMatrix4fv( this.u_mvpDM, false, mvp);
+        gl.uniformMatrix4fv( this.u_mvpDM, false, new Float32Array(mvp));
         gl.uniform1f(this.u_nearDM, near);
         gl.uniform1f(this.u_farDM, far);
         gl.uniform1i(this.u_maskDM, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
@@ -216,6 +214,7 @@ class TerrainDrawer
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         // seteo nuevamente el viewport al tamaño del canvas para no tener que estar despues preocupandome
         gl.viewport( 0, 0, gl.canvas.width, gl.canvas.height);
+
     }
 
     renderMouse( mvp , mv){
@@ -309,8 +308,9 @@ class TerrainDrawer
         gl.viewport( 0, 0, gl.canvas.width, gl.canvas.height);
         
         // la currentmask pasa a ser la nueva
-        console.log(this.currentMask);
         this.currentMask = this.currentMask == 0 ? 1 : 0;
+
+        this.renderDepthMap(this.lightProjection, this.lightNearPlane, this.lightFarPlane, this.framebufferDM);
     }
 
     generateGrid(){
@@ -347,7 +347,7 @@ class TerrainDrawer
             point[0] = startX;
         }
 
-
+        //this.renderDepthMap(this.lightProjection, this.lightNearPlane, this.lightFarPlane, this.framebufferDM);
     }
 
     getVertex( index ){
@@ -358,21 +358,7 @@ class TerrainDrawer
         return [ this.getVertex(3 * index1), this.getVertex(3 * index2), this.getVertex(3 * index3)  ];
     }
 
-    generateNormals(){
-        for(var i = 0 ; i < this.indices.length ; i += 3 ){
-            
-            var triangle = this.getTriangle(this.indices[i], this.indices[i + 1], this.indices[i + 2]);
-
-            var normal = math.cross( math.subtract(triangle[1], triangle[0]), math.subtract(triangle[2], triangle[0]) );
-            this.normals = this.normals.concat([normal, normal, normal]);
-        }
-    }
-
     bufferGrid(){
-        //cargo al buffer las normales
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.normals), gl.STATIC_DRAW);
-
         // cargo al buffer los vertices de los triangulos
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.grid), gl.STATIC_DRAW);
@@ -417,12 +403,12 @@ class TerrainDrawer
     }
 
     draw( mvp, mv, mn, perspectiveMatrix11 ){
-              
+    
         if(this.editorMode && this.mouseUpdate){
             this.renderMouse(MatrixMult(perspectiveMatrix11, mv), mv);
-            //this.mouseUpdate = false;
-            this.tester.draw(mvp, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
-            return;
+            this.mouseUpdate = false;
+            //this.tester.draw(mvp, this.depMapSlot[1]);
+            //return;
         }
         
         gl.useProgram( this.terrProg );
@@ -446,10 +432,6 @@ class TerrainDrawer
         gl.uniform1i(this.u_depMap, this.depMapSlot[1]);
         gl.uniform1i(this.u_cursorMap, this.cursorDepMapSlot[1]);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
-		gl.vertexAttribPointer( this.a_normals, 3 , gl.FLOAT, false, 0, 0 );
-        gl.enableVertexAttribArray( this.a_normals );
-
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
 		gl.vertexAttribPointer( this.a_vertPos, 3 , gl.FLOAT, false, 0, 0 );
         gl.enableVertexAttribArray( this.a_vertPos );
@@ -462,7 +444,6 @@ class TerrainDrawer
 var terrVS = `
     precision mediump float;
 	attribute vec3 pos;
-    attribute vec3 norm;
 
     uniform sampler2D mask;
 	uniform mat4 mvp;
@@ -475,16 +456,38 @@ var terrVS = `
     varying vec4 v_lightVertCoord;
     varying vec4 v_vertexColor;
 
+    float direction(float coord, float lambda){
+        return (1.0 - step(1.0, coord + lambda)) * (coord + lambda) + (step(1.0, coord + lambda)) * (coord - lambda);
+    }
+
+    vec3 getNormal( vec4 vertex ){
+        float lambda = 0.1;
+        
+        float normalDir = step(1.0, pos.x + lambda) * 1.0 + (1.0 - step(1.0, pos.x + lambda)) * -1.0;
+
+        // calculo punto a distancia lambda en el eje x (si .01 ya se me va de rango devuelvo mismo punto)
+        vec2 xStep =  vec2( direction(pos.x, lambda), pos.z ) / 2.0 + 0.5;
+        // calculo vector tangente en eje x
+        vec3 dX = vec3( min(pos.x + lambda, 1.0), 2.0 * texture2D(mask, xStep ).r - 1.0, vertex.z) - vertex.xyz;
+        
+        // idem eje z
+        vec2 zStep =  vec2( pos.x, direction(pos.z, lambda)) / 2.0 + 0.5;
+        vec3 dZ = vec3( vertex.x, 2.0 * texture2D(mask, zStep ).r - 1.0, min(pos.z + lambda, 1.0)) - vertex.xyz;
+        
+        // calculo normal a vectores tangentes... deberia ser la normal de la curva en el vertice en cuestion
+        return normalize(normalDir * cross(dX, dZ));
+    }
+
 	void main()
 	{
         vec2 texCoords = pos.xz / 2.0 + 0.5;
-        vec4 heightMask = vec4(0.0,texture2D(mask, texCoords).r - 0.5, 0.0, 0.0);
-        vec4 vertex = vec4( pos.xyz ,1.0) + 0.0 * heightMask;
+        vec4 heightMask = 2.0 * vec4(0.0,texture2D(mask, texCoords).r - 0.5, 0.0, 0.0);
+        vec4 vertex = vec4( pos.xyz ,1.0) + heightMask;
 		gl_Position = mvp * vertex;
 
         v_texCoord = texCoords;
         v_vertCoord = vertex;
-		v_normCoord = normalize(norm);
+		v_normCoord = normalize(getNormal(vertex));
         v_lightVertCoord = lightMVP * vertex;
         v_vertexColor = vertex / 2.0 + 0.5;
 	}
@@ -534,6 +537,7 @@ var terrFS = `
     }
 
     float shadowIntensity( vec4 pos, vec3 normal, vec3 lightDir ){
+        /*
         vec3 projCoords = pos.xyz / pos.w;
         projCoords.xyz = projCoords.xyz / 2.0 + 0.5;
         float currentDepth = linearizeDepth(pos.z, lightNear, lightFar);
@@ -550,12 +554,13 @@ var terrFS = `
         shadowGradient /= 16.0;
 
         return shadowGradient;
+        */
+       return 1.0;
     }
 
 	void main()
 	{
-        vec4 Kd = vec4(1.0, 0.0, 0.0, 1.0);//getColor( v_vertCoord.y );
-        /*
+        vec4 Kd = getColor( v_vertCoord.y );
         
         vec4 I = vec4(1.0 , 1.0 , 1.0, 1.0); // color de la luz
 		vec4 Ia = I; // int luz ambiental
@@ -572,8 +577,7 @@ var terrFS = `
         float dist = distance(v_vertexColor.xz, cursorColor);
         vec4 compCursor = (1.0 - step(radio , dist)) * (step(radio - 0.002, dist))  * vec4(1.0, 1.0 , 1.0, 1.0);
 
-        */
-		gl_FragColor = Kd;//compDifusa + compAmbiental + step(1.0, editorMode) * compCursor;
+		gl_FragColor = compDifusa + compAmbiental + step(1.0, editorMode) * compCursor;
 	}
 `;
 
@@ -587,9 +591,9 @@ var zMapVS = `
 
     void main(){
         vec2 texCoords = pos.xz / 2.0 + 0.5;
-        vec4 heightMask = vec4(0.0, texture2D(mask, texCoords).r - 0.5 , 0.0, 0.0);
-        vec4 vertex = vec4( pos.xyz ,1.0) + 0.0 * heightMask;
-        gl_Position = vertex;
+        vec4 heightMask = 2.0 * vec4(0.0, texture2D(mask, texCoords).r - 0.5 , 0.0, 0.0);
+        vec4 vertex = vec4( pos.xyz ,1.0) + heightMask;
+        gl_Position = mvp * vertex;
 
         v_pos = vertex;
     }
@@ -610,7 +614,7 @@ var zMapFS = `
     varying vec4 v_pos;
     void main(){
         float z = linearizeDepth(v_pos.z);
-        gl_FragColor = vec4(z, 0.0, 0.0 , 1.0);
+        gl_FragColor = vec4(z, z, z , 1.0);
     }
 `;
 
@@ -626,11 +630,11 @@ var colorPickVS = `
 
     void main(){
         vec2 texCoords = pos.xz / 2.0 + 0.5;
-        vec4 heightMask = vec4(0.0, texture2D(mask, texCoords).r -0.5 , 0.0, 0.0);
-        vec4 vertex = vec4( pos.xyz ,1.0) + 0.0 * heightMask;
-        gl_Position = vertex;
+        vec4 heightMask = 2.0 * vec4(0.0, texture2D(mask, texCoords).r -0.5 , 0.0, 0.0);
+        vec4 vertex = vec4( pos.xyz ,1.0) + heightMask;
+        gl_Position = mvp * vertex;
 
-        v_pos = mv * vec4(pos.xyz, 1.0);
+        v_pos = mv * (vec4(pos.xyz, 1.0) + heightMask);
         v_color = vec4(pos.xyz ,1.0) / 2.0 + 0.5;
     }
 `;
