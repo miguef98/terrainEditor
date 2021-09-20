@@ -47,8 +47,8 @@ class TerrainDrawer
         this.lightSource = [0.6785297820884697, 0.7234815483374121, -0.12716832952537618];
         
         // matrices de la luz (equivalentes a mv y mvp respectivamente)
-        this.lightNearPlane = -0.8;
-        this.lightFarPlane = 4.3;
+        this.lightNearPlane = 0.8;
+        this.lightFarPlane = 4.75;
         
         var lightCameraMatrix   = GetModelViewMatrix( 0, 0, transZ, -1 * 0.18 * Math.PI, 0.55 * Math.PI );
         this.lightProjection = MatrixMult( ProjectionMatrix( Math.PI / 3, 1, this.lightNearPlane, this.lightFarPlane), lightCameraMatrix);
@@ -109,18 +109,21 @@ class TerrainDrawer
         this.u_mouseColor = gl.getUniformLocation( this.maskProg, 'mouseColor' );
         this.u_lastMask = gl.getUniformLocation( this.maskProg, 'lastMask' );
         this.u_brushSizeMask = gl.getUniformLocation(this.maskProg, 'radio');
+        this.u_speedMask = gl.getUniformLocation(this.maskProg, 'speed');
         this.a_vertPosMask = gl.getAttribLocation( this.maskProg, 'pos' );
         
         this.currentMask = 0;
         this.slotMask_1 = [gl.TEXTURE2, 2];
         this.slotMask_2 = [gl.TEXTURE3, 3]; 
         
-        this.maskSize = 2 * math.max([this.gridWidth, this.gridDepth]);
+        this.maskSize = math.max([this.gridWidth, this.gridDepth]);
+
+        this.drawSpeed = 0.0001;
         
         this.t_mask_1 = gl.createTexture();        
         this.framebufferMask_1 = gl.createFramebuffer();
         this.renderbufferMask_1 = gl.createRenderbuffer();
-        this.initializeTextureWithValue(this.t_mask_1, this.maskSize, 128, this.slotMask_1[0]);
+        this.initializeTextureWithColor(this.t_mask_1, this.maskSize, [0, 0, 255, 255], this.slotMask_1[0]);
         this.attachTextureToFB(this.framebufferMask_1, this.renderbufferMask_1, this.t_mask_1, this.maskSize);
         
         this.t_mask_2 = gl.createTexture();
@@ -133,13 +136,13 @@ class TerrainDrawer
         this.tester = new TestDrawer();
 	}
     
-    initializeTextureWithValue( texture, textureSize, value, textureSlot ){
+    initializeTextureWithColor( texture, textureSize, color, textureSlot ){
         gl.activeTexture( textureSlot );
         gl.bindTexture(gl.TEXTURE_2D, texture);
 
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
             textureSize, textureSize, 0,
-            gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(textureSize * textureSize * 4).fill(value) );
+            gl.RGBA, gl.UNSIGNED_BYTE, fillNTimes( textureSize * textureSize, color ) );
 
         // aplico flitros... nose bien para que sirve
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -272,10 +275,7 @@ class TerrainDrawer
 
     paint(){
         // si el mouse no esta sobre nada no pinto...
-        if(this.mouseColor[0] == -10) {
-            console.log("no esta sobre grilla");
-            return;
-        }
+        if(this.mouseColor[0] == -10) return;
 
         gl.useProgram( this.maskProg );
 
@@ -284,6 +284,7 @@ class TerrainDrawer
         // la currentMask es de la que tengo que leer
         gl.uniform1i(this.u_lastMask, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
         gl.uniform1f(this.u_brushSizeMask, this.brushSize);
+        gl.uniform1f(this.u_speedMask, this.drawSpeed);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
 		gl.vertexAttribPointer( this.a_vertPosMask, 3 , gl.FLOAT, false, 0, 0 );
@@ -346,8 +347,6 @@ class TerrainDrawer
             point[2] += this.gridDensity;
             point[0] = startX;
         }
-
-        //this.renderDepthMap(this.lightProjection, this.lightNearPlane, this.lightFarPlane, this.framebufferDM);
     }
 
     getVertex( index ){
@@ -367,10 +366,6 @@ class TerrainDrawer
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indices), gl.STATIC_DRAW);
 
-    }
-
-    setShadowLevel( level ){
-        this.shadowEps = level;
     }
 
     setBrushSize( level ){
@@ -407,7 +402,7 @@ class TerrainDrawer
         if(this.editorMode && this.mouseUpdate){
             this.renderMouse(MatrixMult(perspectiveMatrix11, mv), mv);
             this.mouseUpdate = false;
-            //this.tester.draw(mvp, this.depMapSlot[1]);
+            //this.tester.draw(mvp, this.depMapSlot[1]); //this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
             //return;
         }
         
@@ -450,42 +445,36 @@ var terrVS = `
     uniform mat4 mv;
     uniform mat4 lightMVP;
 
-    varying vec2 v_texCoord;
     varying vec3 v_normCoord;
 	varying vec4 v_vertCoord;
     varying vec4 v_lightVertCoord;
     varying vec4 v_vertexColor;
+    
+    float getHeight( vec4 color ){
+        return dot(color, vec4(1.0, 1.0, 1.0, 1.0)) / 2.0 - 1.0 ;
+    }
 
-    float direction(float coord, float lambda){
-        return (1.0 - step(1.0, coord + lambda)) * (coord + lambda) + (step(1.0, coord + lambda)) * (coord - lambda);
+    vec4 getVertex( vec3 position ){
+        vec2 texCoords = position.xz / 2.0 + 0.5;
+        vec4 heightMask = vec4( 0.0, getHeight(texture2D(mask, texCoords)), 0.0, 0.0 );
+        return vec4( position.xyz ,1.0) + heightMask;
     }
 
     vec3 getNormal( vec4 vertex ){
-        float lambda = 0.1;
+        float lambda = 0.07;
         
-        float normalDir = step(1.0, pos.x + lambda) * 1.0 + (1.0 - step(1.0, pos.x + lambda)) * -1.0;
+        // sin pensar en bordes:
+        vec4 vertexOffX = getVertex( pos + vec3(lambda, 0.0, 0.0));
+        vec4 vertexOffZ = getVertex( pos + vec3(0.0, 0.0, lambda));
 
-        // calculo punto a distancia lambda en el eje x (si .01 ya se me va de rango devuelvo mismo punto)
-        vec2 xStep =  vec2( direction(pos.x, lambda), pos.z ) / 2.0 + 0.5;
-        // calculo vector tangente en eje x
-        vec3 dX = vec3( min(pos.x + lambda, 1.0), 2.0 * texture2D(mask, xStep ).r - 1.0, vertex.z) - vertex.xyz;
-        
-        // idem eje z
-        vec2 zStep =  vec2( pos.x, direction(pos.z, lambda)) / 2.0 + 0.5;
-        vec3 dZ = vec3( vertex.x, 2.0 * texture2D(mask, zStep ).r - 1.0, min(pos.z + lambda, 1.0)) - vertex.xyz;
-        
-        // calculo normal a vectores tangentes... deberia ser la normal de la curva en el vertice en cuestion
-        return normalize(normalDir * cross(dX, dZ));
+        return cross( (vertexOffZ - vertex).xyz, (vertexOffX - vertex).xyz );
     }
 
 	void main()
 	{
-        vec2 texCoords = pos.xz / 2.0 + 0.5;
-        vec4 heightMask = 2.0 * vec4(0.0,texture2D(mask, texCoords).r - 0.5, 0.0, 0.0);
-        vec4 vertex = vec4( pos.xyz ,1.0) + heightMask;
+        vec4 vertex = getVertex(pos);
 		gl_Position = mvp * vertex;
 
-        v_texCoord = texCoords;
         v_vertCoord = vertex;
 		v_normCoord = normalize(getNormal(vertex));
         v_lightVertCoord = lightMVP * vertex;
@@ -507,7 +496,6 @@ var terrFS = `
     uniform vec2 cursorColor;
     uniform float radio;
 
-    varying vec2 v_texCoord;
     varying vec3 v_normCoord;
     varying vec4 v_vertCoord;
     varying vec4 v_lightVertCoord;
@@ -537,7 +525,7 @@ var terrFS = `
     }
 
     float shadowIntensity( vec4 pos, vec3 normal, vec3 lightDir ){
-        /*
+        
         vec3 projCoords = pos.xyz / pos.w;
         projCoords.xyz = projCoords.xyz / 2.0 + 0.5;
         float currentDepth = linearizeDepth(pos.z, lightNear, lightFar);
@@ -554,8 +542,7 @@ var terrFS = `
         shadowGradient /= 16.0;
 
         return shadowGradient;
-        */
-       return 1.0;
+        
     }
 
 	void main()
@@ -589,13 +576,21 @@ var zMapVS = `
 
     varying vec4 v_pos;
 
+    float getHeight( vec4 color ){
+        return dot(color, vec4(1.0, 1.0, 1.0, 1.0)) / 2.0 - 1.0 ;
+    }
+
+    vec4 getVertex( vec3 position ){
+        vec2 texCoords = position.xz / 2.0 + 0.5;
+        vec4 heightMask = vec4( 0.0, getHeight(texture2D(mask, texCoords)), 0.0, 0.0 );
+        return vec4( position.xyz ,1.0) + heightMask;
+    }
+
     void main(){
-        vec2 texCoords = pos.xz / 2.0 + 0.5;
-        vec4 heightMask = 2.0 * vec4(0.0, texture2D(mask, texCoords).r - 0.5 , 0.0, 0.0);
-        vec4 vertex = vec4( pos.xyz ,1.0) + heightMask;
+        vec4 vertex = getVertex(pos);
         gl_Position = mvp * vertex;
 
-        v_pos = vertex;
+        v_pos = mvp * vertex;
     }
 `;
 
@@ -628,9 +623,13 @@ var colorPickVS = `
     varying vec4 v_pos;
     varying vec4 v_color;
 
+    float getHeight( vec4 color ){
+        return dot(color, vec4(1.0, 1.0, 1.0, 1.0)) / 2.0 - 1.0 ;
+    }
+
     void main(){
         vec2 texCoords = pos.xz / 2.0 + 0.5;
-        vec4 heightMask = 2.0 * vec4(0.0, texture2D(mask, texCoords).r -0.5 , 0.0, 0.0);
+        vec4 heightMask = vec4( 0.0, getHeight(texture2D(mask, texCoords)), 0.0, 0.0 );
         vec4 vertex = vec4( pos.xyz ,1.0) + heightMask;
         gl_Position = mvp * vertex;
 
@@ -690,12 +689,35 @@ var maskFS = `
     uniform sampler2D lastMask;
     uniform vec4 mouseColor;
     uniform float radio;
+    uniform float speed;
 
     varying vec4 v_color;
 
+    float getHeight( vec4 color ){
+        return dot(color, vec4(1.0, 1.0, 1.0, 1.0)) / 2.0 - 1.0 ;
+    }
+
+    vec4 toVec( float height ){
+        vec4 res = vec4(0.0, 0.0, 0.0, 0.0);
+
+        height = (height + 1.0) * 2.0 * 255.0; // valor entero entre 0 y 1020
+        res.a = clamp( height / 255.0, 0.0, 1.0 );
+        height -= 255.0;
+        res.b = clamp( height / 255.0, 0.0, 1.0 );
+        height -= 255.0;
+        res.g = clamp( height / 255.0, 0.0, 1.0 );
+        height -= 255.0;
+        res.r = clamp( height / 255.0, 0.0, 1.0 );
+
+        return res;
+    }
+
     void main(){
-        // algo por el estilo
-        float d = distance(mouseColor.xz, v_color.xz);
-        gl_FragColor = texture2D(lastMask, v_color.xz) + (1.0 - step(radio, d)) * (cos((3.1415 / radio) * d) / 2.0 + 0.5) * 0.05;
+        float distToMouse = distance(mouseColor.xz, v_color.xz);
+        float isInRange = (1.0 - step(radio, distToMouse)); // si distancia al mouse > radio no pinto
+        float offset = isInRange * (cos((3.1415 / radio) * distToMouse) / 2.0 + 0.5) * speed;
+        
+        float height = getHeight( texture2D(lastMask, v_color.xz) ) + offset * 255.0;
+        gl_FragColor = toVec(height);
     }
 `;

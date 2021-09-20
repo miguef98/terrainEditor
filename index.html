@@ -19,8 +19,6 @@
             <div class="control"><button type="button" disabled onclick="document.getElementById('botonVista').disabled=true;document.getElementById('botonEditor').disabled=false;SetViewMode();" class="fbutton" id="botonVista">1</button>
                                  <button type="button" onclick="this.disabled=true;document.getElementById('botonVista').disabled=false;SetEditorMode();" class="fbutton" id="botonEditor">2</button></div>
             <div class="control"><input id="show-box" name="show-box" type="checkbox" onchange="DrawScene()" checked /><label for="show-box"> Mostrar caja</label></div>
-            
-            <div class="control"><span id="shadowLevel-label">Nivel de sombreado:</span><span id="shadowLevel-value"></span><input id="shadowLevel-exp" type="range" min="0" max="100" value="2" oninput="SetShadowLevel(this)"/></div>
             <div class="control"><span id="editorRadioLevel-label">Tamaño pincel:</span><span id="editorRadioLevel-value"></span><input id="editorLevel-exp" type="range" min="5" max="56" value="10" oninput="SetBrushSize(this)"/></div>
         </div>
         <div class="control-group">

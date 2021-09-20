@@ -228,6 +228,15 @@ function MatrixMult( A, B )
 	}
 	return C;
 }
+
+function fillNTimes( n, arr ){
+	var res = [];
+	for(var i = 0 ; i < n ; i++ ){
+		res = res.concat(arr);
+	}
+
+	return new Uint8Array(res);
+}
 // ======== Funciones para el control de la interfaz ========
 
 var showBox;  // boleano para determinar si se debe o no mostrar la caja
@@ -321,11 +330,6 @@ function WindowResize()
 
 function SetWaterLevel( level ){
 	terrDrawer.setWaterLevel(2 * (level.value / 100) - 1);
-	DrawScene();
-}
-
-function SetShadowLevel( level ){
-	terrDrawer.setShadowLevel( level.value / 100);
 	DrawScene();
 }
 
