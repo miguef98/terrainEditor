@@ -21,12 +21,24 @@ class TerrainDrawer
         this.u_editorMode = gl.getUniformLocation(this.terrProg, 'editorMode');
         this.u_cursorColor = gl.getUniformLocation(this.terrProg, 'cursorColor');
         this.u_radio = gl.getUniformLocation(this.terrProg, 'radio');
+        this.u_colorHeights = gl.getUniformLocation(this.terrProg, 'colorHeights');
+        this.u_colors = gl.getUniformLocation(this.terrProg, 'colors');
 
         this.a_vertPos = gl.getAttribLocation( this.terrProg, 'pos' );
         this.vertBuffer = gl.createBuffer();
         this.indexBuffer = gl.createBuffer();
 
-        
+        this.colors = new Float32Array([ 
+            0.44, 0.38, 0.28, 1.0,
+            0.17, 0.48, 0.22, 1.0,
+            0.41, 0.286, 0.235, 1.0,
+            0.58, 0.7, 0.7, 1.0
+        ]);
+
+
+        this.colorHeights = new Float32Array([ -0.2, 0.0, 0.7 ]);
+
+
         // unidades en las que voy a almacenar cada textura y el valor relativo al programa
         this.depMapSlot = [gl.TEXTURE0, 0];
         this.cursorDepMapSlot = [gl.TEXTURE1, 1];
@@ -37,9 +49,6 @@ class TerrainDrawer
         this.gridNumTriangles = 2 * (this.gridWidth - 1) * (this.gridDepth - 1);
         this.gridLeftPlane = (-1 * this.gridWidth * this.gridDensity) / 2 + this.gridDensity / 2;
         this.gridNearPlane = (-1 * this.gridDepth * this.gridDensity) / 2 + this.gridDensity / 2;
-
-        console.log(this.gridLeftPlane);
-        console.log(this.gridNearPlane);
 
         this.grid = [];
         this.indices = [];
@@ -76,6 +85,13 @@ class TerrainDrawer
 
         this.initializeEmptyTexture(this.t_depthMap, this.depthMapSize, this.depMapSlot[0]);
         this.attachTextureToFB(this.framebufferDM, this.renderbufferDM, this.t_depthMap, this.depthMapSize);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebufferDM);
+
+        gl.clearColor(1.0,1.0,1.0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT| gl.DEPTH_BUFFER_BIT);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
         this.cursorMapSize = 64;
 
@@ -376,6 +392,19 @@ class TerrainDrawer
 
     }
 
+    setTexture( img ){
+        this.textureIsSet = true;
+        // bindeo el height map a la unidad de textura correspondiente
+        gl.activeTexture( this.hMapSlot[0] );
+        gl.bindTexture( gl.TEXTURE_2D, this.t_heightMap);
+		gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img );
+		gl.generateMipmap( gl.TEXTURE_2D );
+
+        this.initializeVariablesForTextRender(this.framebufferDM, this.renderbufferDM, this.t_depthMap, this.depthMapSize, this.depMapSlot[0]);
+        this.renderDepthMap(this.lightProjection, this.lightNearPlane, this.lightFarPlane, this.framebufferDM);
+
+    }
+
     setBrushSize( level ){
         this.brushSize = level;
     }
@@ -434,6 +463,9 @@ class TerrainDrawer
         gl.uniform1f(this.u_lightFar, this.lightFarPlane);
         gl.uniform1f(this.u_radio, this.brushSize);
         gl.uniformMatrix4fv(this.u_cursorMVP, false, new Float32Array(MatrixMult(perspectiveMatrix11, mv)));
+        gl.uniform3fv( this.u_colorHeights, this.colorHeights);
+        gl.uniformMatrix4fv( this.u_colors, false, this.colors);
+
 
         if(this.editorMode) gl.uniform1f(this.u_editorMode, 1.0);
         else gl.uniform1f(this.u_editorMode, 0.0);
@@ -511,6 +543,9 @@ var terrFS = `
     uniform vec2 cursorColor;
     uniform float radio;
 
+    uniform vec3 colorHeights;
+    uniform mat4 colors;
+
     varying vec3 v_normCoord;
     varying vec4 v_vertCoord;
     varying vec4 v_lightVertCoord;
@@ -520,23 +555,19 @@ var terrFS = `
         return ((1.0 / depth ) - (1.0 / near)) / ((1.0 / far) - (1.0 / near));
     }
 
-    vec4 getColor( float height ){
-        vec4 sand = vec4(0.44, 0.38, 0.28, 1.0);
-        vec4 green = vec4(0.17, 0.48, 0.22, 1.0);
-        vec4 brown = vec4(0.41, 0.286, 0.235, 1.0);
-        vec4 snow = vec4(0.58, 0.7, 0.7, 1.0);
+    float isBetween( float x, float bottom, float top){
+        return step(bottom, x) * (1.0 - step(top, x));
+    }
 
-        vec3 colorHeights = vec3( 0.1, 0.6, 0.85);
+    vec4 getColor( float height ){        
+        vec4 res;
 
-        vec4 res = vec4(0.0, 0.0, 0.0, 0.5);
-
-        res = step(0.0, colorHeights.x - height) * sand;
-        res = step(0.6, res.a) * res + (1.0 - step(0.6, res.a)) * step(0.0, colorHeights.y - height) * green;
-        res = step(0.6, res.a) * res + (1.0 - step(0.6, res.a)) * step(0.0, colorHeights.z - height) * brown;
-        res = step(0.6, res.a) * res + (1.0 - step(0.6, res.a)) * (1.0 - step(0.0, colorHeights.z - height)) * snow;
-
+        res = isBetween(height, -1.0, colorHeights.x) * mix( colors[0], colors[1], abs(height + 1.0) / abs(colorHeights.x + 1.0) );
+        res += isBetween(height, colorHeights.x, colorHeights.z) * mix( colors[1], colors[2], abs(colorHeights.x - height) / abs(colorHeights.z - colorHeights.x) );
+        res += isBetween(height, colorHeights.z, 1.00001) * mix( colors[2], colors[3], abs(height - colorHeights.z) / abs(1.0 - colorHeights.z) );
 
         return res;
+
     }
 
     float shadowIntensity( vec4 pos, vec3 normal, vec3 lightDir ){

@@ -19,11 +19,10 @@
             <div class="control"><button id="viewMode-button" onclick="SetViewMode()"><img src="hand.png" height="20%" width="20%" ></button></div>
             <div class="control"><button id="drawMode-button" onclick="SetEditorMode()"><img src="pencil.png" height="20%" width="20%" ></button></div>
             <div class="control"><button id="eraseMode-button" onclick="SetEraseMode()"><img src="eraser.png" height="20%" width="20%" ></button></div>
-            <!--div class="control"><input id="show-box" name="show-box" type="checkbox" onchange="DrawScene()" checked /><label for="show-box"> Mostrar caja</label></div-->
-            <div id="radioLevel-div" class="control" style="display: none;"><span id="editorRadioLevel-label">Tamaño pincel:</span><span id="editorRadioLevel-value"></span><input id="editorLevel-exp" type="range" min="5" max="56" value="10" oninput="SetBrushSize(this)"/></div>
+            <div id="BrushSize-div" class="control" style="display: none;"><span id="editorBrushSize-label">Tamaño pincel:</span><span id="editorBrushSize-value"></span><input id="editorBrushSize-exp" type="range" min="5" max="56" value="10" oninput="SetBrushSize(this)"/></div>
         </div>
         <div class="control-group">
-            <!--div class="control">Textura:<br/><input id="texture" type="file" onchange="LoadTexture(this)" accept="image/*"/></div-->
+            <div class="control">Textura:<br/><input id="texture" type="file" onchange="LoadTexture(this)" accept="image/*"/></div>
         </div>
         <div class="control-group">
             <img id="texture-img" />

@@ -333,11 +333,11 @@ function SetWaterLevel( level ){
 }
 
 function showPencilSizeSlider(){
-	document.getElementById("radioLevel-div").style.display = "block";
+	document.getElementById("BrushSize-div").style.display = "block";
 }
 
 function hidePencilSizeSlider(){
-	document.getElementById("radioLevel-div").style.display = "none";
+	document.getElementById("BrushSize-div").style.display = "none";
 }
 
 function SetEditorMode(){
@@ -366,7 +366,7 @@ function SetBrushSize( level ){
 	DrawScene();
 }
 
-/*
+
 // Cargar textura
 function LoadTexture( param )
 {
@@ -387,4 +387,4 @@ function LoadTexture( param )
 		reader.readAsDataURL( param.files[0] );
 	}
 
-}*/
+}
