@@ -35,6 +35,12 @@ class TerrainDrawer
         this.gridWidth = width + 1;
         this.gridDepth = depth + 1;
         this.gridNumTriangles = 2 * (this.gridWidth - 1) * (this.gridDepth - 1);
+        this.gridLeftPlane = (-1 * this.gridWidth * this.gridDensity) / 2 + this.gridDensity / 2;
+        this.gridNearPlane = (-1 * this.gridDepth * this.gridDensity) / 2 + this.gridDensity / 2;
+
+        console.log(this.gridLeftPlane);
+        console.log(this.gridNearPlane);
+
         this.grid = [];
         this.indices = [];
         this.generateGrid();
@@ -103,12 +109,13 @@ class TerrainDrawer
         this.maskProg = InitShaderProgram(maskVS, maskFS);
         
         var maskMatrix = GetModelViewMatrix( 0, 0, transZ, -1 * Math.PI / 2 , 0);
-        this.mvpMask = MatrixMult( OrthographicProjMatrix(-1, 1, -1, 1, -7, 7), maskMatrix);
+        this.mvpMask = MatrixMult( OrthographicProjMatrix(this.gridLeftPlane, -1 * this.gridLeftPlane, this.gridNearPlane, -1 * this.gridNearPlane, -7, 7), maskMatrix);
         
         this.u_mvpMask = gl.getUniformLocation( this.maskProg, 'mvp' );
         this.u_mouseColor = gl.getUniformLocation( this.maskProg, 'mouseColor' );
         this.u_lastMask = gl.getUniformLocation( this.maskProg, 'lastMask' );
         this.u_brushSizeMask = gl.getUniformLocation(this.maskProg, 'radio');
+        this.u_directionMask = gl.getUniformLocation(this.maskProg, 'direction');
         this.u_speedMask = gl.getUniformLocation(this.maskProg, 'speed');
         this.a_vertPosMask = gl.getAttribLocation( this.maskProg, 'pos' );
         
@@ -285,6 +292,7 @@ class TerrainDrawer
         gl.uniform1i(this.u_lastMask, this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
         gl.uniform1f(this.u_brushSizeMask, this.brushSize);
         gl.uniform1f(this.u_speedMask, this.drawSpeed);
+        gl.uniform1f(this.u_directionMask, this.erase? -1 : 1);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
 		gl.vertexAttribPointer( this.a_vertPosMask, 3 , gl.FLOAT, false, 0, 0 );
@@ -389,7 +397,13 @@ class TerrainDrawer
 
     setEditorMode( projMatrix ){
         this.editorMode = true;
+        this.erase = false;
+        this.inverseProjection = math.inv(toMatrix(projMatrix));
+    }
 
+    setEraseMode( projMatrix ){
+        this.editorMode = true;
+        this.erase = true;
         this.inverseProjection = math.inv(toMatrix(projMatrix));
     }
 
@@ -399,6 +413,7 @@ class TerrainDrawer
 
     draw( mvp, mv, mn, perspectiveMatrix11 ){
     
+        //mvp = this.mvpMask;
         if(this.editorMode && this.mouseUpdate){
             this.renderMouse(MatrixMult(perspectiveMatrix11, mv), mv);
             this.mouseUpdate = false;
@@ -690,6 +705,7 @@ var maskFS = `
     uniform vec4 mouseColor;
     uniform float radio;
     uniform float speed;
+    uniform float direction;
 
     varying vec4 v_color;
 
@@ -715,7 +731,7 @@ var maskFS = `
     void main(){
         float distToMouse = distance(mouseColor.xz, v_color.xz);
         float isInRange = (1.0 - step(radio, distToMouse)); // si distancia al mouse > radio no pinto
-        float offset = isInRange * (cos((3.1415 / radio) * distToMouse) / 2.0 + 0.5) * speed;
+        float offset = direction * isInRange * (cos((3.1415 / radio) * distToMouse) / 2.0 + 0.5) * speed;
         
         float height = getHeight( texture2D(lastMask, v_color.xz) ) + offset * 255.0;
         gl_FragColor = toVec(height);

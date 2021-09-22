@@ -6,6 +6,7 @@ var perspectiveMatrix;	// matriz de perspectiva
 var viewMode=true;
 var interval;
 
+
 var nearPlane, farPlane;
 var rotX=0, rotY=0, transZ=3;
 
@@ -158,9 +159,8 @@ function DrawScene()
 	
 	var nrmTrans = [ mv[0],mv[1],mv[2], mv[4],mv[5],mv[6], mv[8],mv[9],mv[10] ];
 	terrDrawer.draw(mvp, mv, nrmTrans, ProjectionMatrix(Math.PI / 3, 1, nearPlane, farPlane) );
-	if ( showBox.checked ) {
-		boxDrawer.draw( mvp );
-	}
+	boxDrawer.draw( mvp );
+	
 }
 
 // Función que compila los shaders que se le pasan por parámetro (vertex & fragment shaders)
@@ -248,7 +248,6 @@ window.onload = function()
 	InitWebGL();
 
 	controlViewMode();
-	
 	// Dibujo la escena
 	DrawScene();
 };
@@ -333,13 +332,30 @@ function SetWaterLevel( level ){
 	DrawScene();
 }
 
+function showPencilSizeSlider(){
+	document.getElementById("radioLevel-div").style.display = "block";
+}
+
+function hidePencilSizeSlider(){
+	document.getElementById("radioLevel-div").style.display = "none";
+}
+
 function SetEditorMode(){
+	showPencilSizeSlider();
 	terrDrawer.setEditorMode(perspectiveMatrix);
 	controlEditorMode();
 	viewMode = false;
 }
 
+function SetEraseMode(){
+	showPencilSizeSlider();
+	terrDrawer.setEraseMode(perspectiveMatrix);
+	controlEditorMode();
+	viewMode = false;
+}
+
 function SetViewMode(){
+	hidePencilSizeSlider();
 	terrDrawer.setViewMode();
 	controlViewMode();
 	viewMode = true;
