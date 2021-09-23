@@ -561,13 +561,13 @@ var terrFS = `
     vec4 triplanarMapping( vec3 normal, vec4 pos, float textIndex ){
         vec2 fromSample = vec2( mod(textIndex, 2.0) * 0.5, floor(textIndex / 2.0) * 0.5 );
         
-        float tiling = 10.0;
+        float tiling = 5.0;
 
         // hago que vayan de 0 a 0.5 (iban de 0 a 1)
         pos = (pos * tiling - floor(pos * tiling)) / 2.0; 
 
         normal = abs(normal);
-        normal /= (normal.x + normal.y + normal.z);
+        normal /= distance(vec3(0.0, 0.0, 0.0), normal);//normal.x + normal.y + normal.z);
 
         return texture2D(texture, fromSample + pos.xy ) * normal.z + texture2D(texture, fromSample + pos.xz ) * normal.y + texture2D(texture, fromSample + pos.zy ) * normal.x;
     }
@@ -577,7 +577,7 @@ var terrFS = `
     }
 
     float getTextIndex( float height ){
-        return isBetween(height, colorHeights.x, colorHeights.y) + 2.0 * isBetween(height, colorHeights.y, colorHeights.z)  + 3.0 * isBetween(height, colorHeights.z, 1.0);
+        return isBetween(height, colorHeights.x, colorHeights.y) + 2.0 * isBetween(height, colorHeights.y, colorHeights.z)  + 3.0 * isBetween(height, colorHeights.z, 1.0001);
     }
 
     float getClosestIndex( float height ){
@@ -608,7 +608,7 @@ var terrFS = `
         vec4 textColor2 = triplanarMapping(v_normCoord, v_vertexColor, getClosestIndex(height));
         vec4 tintColor = getTint(height);
 
-        return mix( mix(textColor2, textColor1, getAlpha(height) ) * useText + tintColor * (1.0 - useText), tintColor, 0.0 );
+        return mix( mix(textColor2, textColor1, getAlpha(height) ) * useText + tintColor * (1.0 - useText), tintColor, 0.2 );
     }
 
     float shadowIntensity( vec4 pos, vec3 normal, vec3 lightDir ){
@@ -636,7 +636,7 @@ var terrFS = `
 	{
         vec4 Kd = getColor( v_vertCoord.y );
         
-        vec4 I = vec4(1.0 , 1.0 , 1.0, 1.0); // color de la luz
+        vec4 I = vec4(1.0 , 1.0 , 1.0, 1.0) * 0.5; // color de la luz
 		vec4 Ia = I; // int luz ambiental
 		vec4 Ka = Kd; // color amb
         

@@ -159,7 +159,7 @@ function DrawScene()
 	
 	var nrmTrans = [ mv[0],mv[1],mv[2], mv[4],mv[5],mv[6], mv[8],mv[9],mv[10] ];
 	terrDrawer.draw(mvp, mv, nrmTrans, ProjectionMatrix(Math.PI / 3, 1, nearPlane, farPlane) );
-	boxDrawer.draw( mvp );
+	//boxDrawer.draw( mvp );
 	
 }
 
@@ -264,6 +264,7 @@ function controlViewMode(){
 	// Evento de click 
 	canvas.onmousedown = function() 
 	{
+		document.getElementById("canvas").style.cursor = "grabbing";
 		var cx = event.clientX;
 		var cy = event.clientY;
 		if ( event.ctrlKey ) 
@@ -292,6 +293,7 @@ function controlViewMode(){
 	// Evento soltar el mouse
 	canvas.onmouseup = canvas.onmouseleave = function() 
 	{
+		document.getElementById("canvas").style.cursor = "grab";
 		canvas.onmousemove = null;
 	}
 }
@@ -345,6 +347,7 @@ function SetEditorMode(){
 	terrDrawer.setEditorMode(perspectiveMatrix);
 	controlEditorMode();
 	viewMode = false;
+	document.getElementById("canvas").style.cursor = "crosshair";
 }
 
 function SetEraseMode(){
@@ -352,6 +355,7 @@ function SetEraseMode(){
 	terrDrawer.setEraseMode(perspectiveMatrix);
 	controlEditorMode();
 	viewMode = false;
+	document.getElementById("canvas").style.cursor = "crosshair";	
 }
 
 function SetViewMode(){
@@ -359,6 +363,7 @@ function SetViewMode(){
 	terrDrawer.setViewMode();
 	controlViewMode();
 	viewMode = true;
+	document.getElementById("canvas").style.cursor = "grab";
 }
 
 function SetBrushSize( level ){
