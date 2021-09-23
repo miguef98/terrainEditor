@@ -4,7 +4,7 @@
     <title> FINAL FCG </title>
     <link href="style.css" rel="stylesheet">
     <script src="node_modules/mathjs/lib/browser/math.js" type="text/javascript"></script>
-    <script type="text/javascript" id="includedscript" src="boxdrawer.js"></script>
+    <script type="text/javascript" id="includedscript" src="gridDrawer.js"></script>
     <script type="text/javascript" id="includedscript" src="terraindrawer.js"></script>
     <script type="text/javascript" id="includedscript" src="test.js"></script>
     <script type="text/javascript" id="includedscript" src="project.js"></script>
@@ -20,6 +20,7 @@
             <div class="control"><button id="drawMode-button" onclick="SetEditorMode()"><img src="pencil.png" height="20%" width="20%" ></button></div>
             <div class="control"><button id="eraseMode-button" onclick="SetEraseMode()"><img src="eraser.png" height="20%" width="20%" ></button></div>
             <div id="BrushSize-div" class="control" style="display: none;"><span id="editorBrushSize-label">Tamaño pincel:</span><span id="editorBrushSize-value"></span><input id="editorBrushSize-exp" type="range" min="5" max="56" value="10" oninput="SetBrushSize(this)"/></div>
+            <div class="control"><input id="show-box" name="show-box" type="checkbox" onchange="DrawScene()" checked /><label for="show-box"> Mostrar grilla</label></div>
         </div>
         <div class="control-group">
             <div class="control">Textura:<br/><input id="texture" type="file" onchange="LoadTexture(this)" accept="image/*"/></div>

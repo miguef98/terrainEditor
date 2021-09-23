@@ -159,7 +159,9 @@ function DrawScene()
 	
 	var nrmTrans = [ mv[0],mv[1],mv[2], mv[4],mv[5],mv[6], mv[8],mv[9],mv[10] ];
 	terrDrawer.draw(mvp, mv, nrmTrans, ProjectionMatrix(Math.PI / 3, 1, nearPlane, farPlane) );
-	//boxDrawer.draw( mvp );
+	if ( showBox.checked ) {
+		boxDrawer.draw( mvp );
+	}
 	
 }
 

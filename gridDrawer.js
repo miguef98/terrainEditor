@@ -16,26 +16,51 @@ class BoxDrawer
 		this.vertbuffer = gl.createBuffer();
 
 		// 8 caras del cubo unitario
-		var pos = [
-			-1, -1, -1,
-			-1, -1,  1,
-			-1,  1, -1,
-			-1,  1,  1,
-			 1, -1, -1,
-			 1, -1,  1,
-			 1,  1, -1,
-			 1,  1,  1 ];
+		var pos = [];
+		var from = -1.5;
+		var to = 1.5;
+		var rowSize = 10;
+		var offset = (to - from) / (rowSize - 1);
+
+		for(var i = from ; i <= to ; i +=  offset){
+			pos = pos.concat([ i, 0, from ]);
+		}
+
+		for(var i = from + offset ; i <= to - offset ; i += offset){
+			pos = pos.concat([ from, 0, i ]);
+			pos = pos.concat([ to, 0, i ]);
+		}
+
+		for(var i = from ; i <= to ; i +=  offset){
+			pos = pos.concat([ i, 0, to ]);
+		}
+
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertbuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pos), gl.STATIC_DRAW);
 
 		// Conectividad de las lineas
 		this.linebuffer = gl.createBuffer();
-		var line = [
-			0,1,   1,3,   3,2,   2,0,
-			4,5,   5,7,   7,6,   6,4,
-			0,4,   1,5,   3,7,   2,6 ];
+		this.line = [];
+
+		//lineas horizontales
+		this.line = this.line.concat( [0, rowSize - 1]) ;
+
+		var currRow = 0;
+		for(var i = 0 ; i < rowSize ; i++ ){
+			
+			this.line = this.line.concat( [i + rowSize + currRow, i + rowSize + currRow + 1] );
+			currRow += 1;
+		}
+
+		this.line = this.line.concat( [rowSize + 2 * (rowSize - 2), rowSize + 2 * (rowSize - 2) + rowSize - 1 ]) ;
+
+		// lineas verticales
+		for(var i = 0 ; i < rowSize ; i++ ){
+			this.line = this.line.concat( [i, rowSize + 2 * (rowSize - 2) + i]) ;			
+		}
+
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linebuffer);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(line), gl.STATIC_DRAW);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(this.line), gl.STATIC_DRAW);
 	}
 
 	// Esta función se llama para dibujar la caja
@@ -56,7 +81,7 @@ class BoxDrawer
 		gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.linebuffer );
 
 		// 5. Dibujamos
-		gl.drawElements( gl.LINES, 24, gl.UNSIGNED_BYTE, 0 );
+		gl.drawElements( gl.LINES, this.line.length, gl.UNSIGNED_BYTE, 0 );
 	}
 }
 
@@ -75,6 +100,7 @@ var boxFS = `
 	precision mediump float;
 	void main()
 	{
-		gl_FragColor = vec4(0,0,0,1);
+		gl_FragColor = vec4(0.6, 0.6, 0.6, 1.0);
 	}
 `;
+
