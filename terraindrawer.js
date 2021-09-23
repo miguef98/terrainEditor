@@ -23,6 +23,8 @@ class TerrainDrawer
         this.u_radio = gl.getUniformLocation(this.terrProg, 'radio');
         this.u_colorHeights = gl.getUniformLocation(this.terrProg, 'colorHeights');
         this.u_colors = gl.getUniformLocation(this.terrProg, 'colors');
+        this.u_useText = gl.getUniformLocation(this.terrProg, 'useText');
+        this.u_colorText = gl.getUniformLocation(this.terrProg, 'texture');
 
         this.a_vertPos = gl.getAttribLocation( this.terrProg, 'pos' );
         this.vertBuffer = gl.createBuffer();
@@ -36,8 +38,10 @@ class TerrainDrawer
         ]);
 
 
-        this.colorHeights = new Float32Array([ -0.2, 0.0, 0.7 ]);
-
+        this.colorHeights = new Float32Array([ -0.2, 0.4, 0.93 ]);
+        this.useText = 0;
+        this.t_colorText = gl.createTexture();
+        this.colorTextSlot = [gl.TEXTURE4, 4];
 
         // unidades en las que voy a almacenar cada textura y el valor relativo al programa
         this.depMapSlot = [gl.TEXTURE0, 0];
@@ -393,16 +397,12 @@ class TerrainDrawer
     }
 
     setTexture( img ){
-        this.textureIsSet = true;
-        // bindeo el height map a la unidad de textura correspondiente
-        gl.activeTexture( this.hMapSlot[0] );
-        gl.bindTexture( gl.TEXTURE_2D, this.t_heightMap);
+        this.useText = 1;
+        
+        gl.activeTexture( this.colorTextSlot[0] );
+        gl.bindTexture( gl.TEXTURE_2D, this.t_colorText);
 		gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img );
 		gl.generateMipmap( gl.TEXTURE_2D );
-
-        this.initializeVariablesForTextRender(this.framebufferDM, this.renderbufferDM, this.t_depthMap, this.depthMapSize, this.depMapSlot[0]);
-        this.renderDepthMap(this.lightProjection, this.lightNearPlane, this.lightFarPlane, this.framebufferDM);
-
     }
 
     setBrushSize( level ){
@@ -442,7 +442,6 @@ class TerrainDrawer
 
     draw( mvp, mv, mn, perspectiveMatrix11 ){
     
-        //mvp = this.mvpMask;
         if(this.editorMode && this.mouseUpdate){
             this.renderMouse(MatrixMult(perspectiveMatrix11, mv), mv);
             this.mouseUpdate = false;
@@ -465,6 +464,8 @@ class TerrainDrawer
         gl.uniformMatrix4fv(this.u_cursorMVP, false, new Float32Array(MatrixMult(perspectiveMatrix11, mv)));
         gl.uniform3fv( this.u_colorHeights, this.colorHeights);
         gl.uniformMatrix4fv( this.u_colors, false, this.colors);
+        gl.uniform1f(this.u_useText, this.useText);
+        gl.uniform1i(this.u_colorText, this.colorTextSlot[1]);
 
 
         if(this.editorMode) gl.uniform1f(this.u_editorMode, 1.0);
@@ -533,6 +534,7 @@ var terrFS = `
 	precision mediump float;
 
     uniform sampler2D depthMap;
+    uniform sampler2D texture;
 
     uniform vec3 lightDir;
     uniform mat3 mn;
@@ -542,6 +544,7 @@ var terrFS = `
     uniform float editorMode;
     uniform vec2 cursorColor;
     uniform float radio;
+    uniform float useText;
 
     uniform vec3 colorHeights;
     uniform mat4 colors;
@@ -555,19 +558,57 @@ var terrFS = `
         return ((1.0 / depth ) - (1.0 / near)) / ((1.0 / far) - (1.0 / near));
     }
 
+    vec4 triplanarMapping( vec3 normal, vec4 pos, float textIndex ){
+        vec2 fromSample = vec2( mod(textIndex, 2.0) * 0.5, floor(textIndex / 2.0) * 0.5 );
+        
+        float tiling = 10.0;
+
+        // hago que vayan de 0 a 0.5 (iban de 0 a 1)
+        pos = (pos * tiling - floor(pos * tiling)) / 2.0; 
+
+        normal = abs(normal);
+        normal /= (normal.x + normal.y + normal.z);
+
+        return texture2D(texture, fromSample + pos.xy ) * normal.z + texture2D(texture, fromSample + pos.xz ) * normal.y + texture2D(texture, fromSample + pos.zy ) * normal.x;
+    }
+
     float isBetween( float x, float bottom, float top){
         return step(bottom, x) * (1.0 - step(top, x));
     }
 
-    vec4 getColor( float height ){        
-        vec4 res;
+    float getTextIndex( float height ){
+        return isBetween(height, colorHeights.x, colorHeights.y) + 2.0 * isBetween(height, colorHeights.y, colorHeights.z)  + 3.0 * isBetween(height, colorHeights.z, 1.0);
+    }
 
+    float getClosestIndex( float height ){
+        return isBetween(height, colorHeights.y, colorHeights.z) + 2.0 * isBetween(height, colorHeights.z, 1.0);
+    }
+
+    float getAlpha( float height ){
+        float res;
+        res = isBetween(height, -1.0, colorHeights.x) * abs(height + 1.0) / abs(colorHeights.x + 1.0);
+        res += isBetween(height, colorHeights.x, colorHeights.y)  * abs(colorHeights.x - height) / abs(colorHeights.y - colorHeights.x);
+        res += isBetween(height, colorHeights.y, colorHeights.z)  * abs(colorHeights.y - height) / abs(colorHeights.z - colorHeights.y);
+        res += isBetween(height, colorHeights.z, 1.0001) * abs(height - colorHeights.z) / abs(1.0 - colorHeights.z);
+
+        return res;
+    }
+
+    vec4 getTint( float height ){
+        vec4 res;
         res = isBetween(height, -1.0, colorHeights.x) * mix( colors[0], colors[1], abs(height + 1.0) / abs(colorHeights.x + 1.0) );
         res += isBetween(height, colorHeights.x, colorHeights.z) * mix( colors[1], colors[2], abs(colorHeights.x - height) / abs(colorHeights.z - colorHeights.x) );
         res += isBetween(height, colorHeights.z, 1.00001) * mix( colors[2], colors[3], abs(height - colorHeights.z) / abs(1.0 - colorHeights.z) );
 
         return res;
+    }
 
+    vec4 getColor( float height ){
+        vec4 textColor1 = triplanarMapping(v_normCoord, v_vertexColor, getTextIndex(height));
+        vec4 textColor2 = triplanarMapping(v_normCoord, v_vertexColor, getClosestIndex(height));
+        vec4 tintColor = getTint(height);
+
+        return mix( mix(textColor2, textColor1, getAlpha(height) ) * useText + tintColor * (1.0 - useText), tintColor, 0.0 );
     }
 
     float shadowIntensity( vec4 pos, vec3 normal, vec3 lightDir ){
