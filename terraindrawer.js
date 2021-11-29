@@ -159,8 +159,6 @@ class TerrainDrawer
         // la segunda no necesito inicializarla con ningun valor, total vamos a sobreescribirla
         this.initializeEmptyTexture(this.t_mask_2, this.maskSize, this.slotMask_2[0]);
         this.attachTextureToFB(this.framebufferMask_2, this.renderbufferMask_2, this.t_mask_2, this.maskSize);
-        
-        this.tester = new TestDrawer();
 	}
     
     initializeTextureWithColor( texture, textureSize, color, textureSlot ){
@@ -445,8 +443,6 @@ class TerrainDrawer
         if(this.editorMode && this.mouseUpdate){
             this.renderMouse(MatrixMult(perspectiveMatrix11, mv), mv);
             this.mouseUpdate = false;
-            //this.tester.draw(mvp, this.depMapSlot[1]); //this.currentMask == 0? this.slotMask_1[1] : this.slotMask_2[1]);
-            //return;
         }
         
         gl.useProgram( this.terrProg );
