@@ -143,7 +143,7 @@ class TerrainDrawer
         this.slotMask_1 = [gl.TEXTURE2, 2];
         this.slotMask_2 = [gl.TEXTURE3, 3]; 
         
-        this.maskSize = math.max([this.gridWidth, this.gridDepth]);
+        this.maskSize = Math.max(this.gridWidth, this.gridDepth);
 
         this.drawSpeed = 0.0001;
         
@@ -412,10 +412,10 @@ class TerrainDrawer
         var y = 1.0 - (2.0 * mouse_y) / gl.canvas.height;
 
         var homogenousSpace = [x, y, -1, 1];
-        var eyeSpace = math.multiply(this.inverseProjection, homogenousSpace);
+        var eyeSpace = MultMatrixVector(this.inverseProjection, homogenousSpace);
         eyeSpace = [eyeSpace[0], eyeSpace[1], -1, 0];
         var worldSpace = eyeSpace;
-        var norm = math.norm(worldSpace);
+        var norm = VectorNorm(worldSpace);
         var worldSpace = [-1 * worldSpace[0] / norm, -1 * worldSpace[1] / norm, worldSpace[2] / norm];
 
         this.mouseUpdate = true;
@@ -425,13 +425,13 @@ class TerrainDrawer
     setEditorMode( projMatrix ){
         this.editorMode = true;
         this.erase = false;
-        this.inverseProjection = math.inv(toMatrix(projMatrix));
+        this.inverseProjection = toMatrix(Inverse4x4(projMatrix));
     }
 
     setEraseMode( projMatrix ){
         this.editorMode = true;
         this.erase = true;
-        this.inverseProjection = math.inv(toMatrix(projMatrix));
+        this.inverseProjection = toMatrix(Inverse4x4(projMatrix));
     }
 
     setViewMode(){
