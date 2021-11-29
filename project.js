@@ -1,5 +1,5 @@
 // Estructuras globales e inicializaciones
-var boxDrawer;          // clase para contener el comportamiento de la caja
+var gridDrawer;          // clase para contener el comportamiento de la caja
 var terrDrawer;
 var canvas, gl;         // canvas y contexto WebGL
 var perspectiveMatrix;	// matriz de perspectiva
@@ -30,7 +30,7 @@ function InitWebGL()
 	gl.enable(gl.DEPTH_TEST); // habilitar test de profundidad 
 	
 	// Inicializar los shaders y buffers para renderizar	
-	boxDrawer  = new BoxDrawer();
+	gridDrawer  = new GridDrawer();
 	terrDrawer = new TerrainDrawer(64, 64);
 	
 	// Setear el tamaño del viewport
@@ -160,7 +160,7 @@ function DrawScene()
 	var nrmTrans = [ mv[0],mv[1],mv[2], mv[4],mv[5],mv[6], mv[8],mv[9],mv[10] ];
 	terrDrawer.draw(mvp, mv, nrmTrans, ProjectionMatrix(Math.PI / 3, 1, nearPlane, farPlane) );
 	if ( showBox.checked ) {
-		boxDrawer.draw( mvp );
+		gridDrawer.draw( mvp );
 	}
 	
 }

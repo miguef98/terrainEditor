@@ -418,7 +418,7 @@ class TerrainDrawer
         eyeSpace = [eyeSpace[0], eyeSpace[1], -1, 0];
         var worldSpace = eyeSpace;
         var norm = math.norm(worldSpace);
-        var worldSpace = [worldSpace[0] / norm, worldSpace[1] / norm, worldSpace[2] / norm];
+        var worldSpace = [-1 * worldSpace[0] / norm, -1 * worldSpace[1] / norm, worldSpace[2] / norm];
 
         this.mouseUpdate = true;
         this.mouseDirection = worldSpace;
@@ -567,7 +567,7 @@ var terrFS = `
         pos = (pos * tiling - floor(pos * tiling)) / 2.0; 
 
         normal = abs(normal);
-        normal /= distance(vec3(0.0, 0.0, 0.0), normal);//normal.x + normal.y + normal.z);
+        normal /= normal.x + normal.y + normal.z;
 
         return texture2D(texture, fromSample + pos.xy ) * normal.z + texture2D(texture, fromSample + pos.xz ) * normal.y + texture2D(texture, fromSample + pos.zy ) * normal.x;
     }
@@ -736,10 +736,9 @@ var colorPickFS = `
     varying vec4 v_color;
 
     vec4 getColorPoint( vec4 vertPos, vec4 color ){
-        vec3 invMouse = vec3(-1.0 * mouseDirection.xy, mouseDirection.z);
         vec3 v = -1.0 * vertPos.xyz;
-        float a = pow(invMouse.x, 2.0) + pow(invMouse.y, 2.0) + pow(invMouse.z, 2.0);
-        float b = 2.0 * invMouse.x * v.x + 2.0 * invMouse.y * v.y + 2.0 * invMouse.z * v.z;
+        float a = pow(mouseDirection.x, 2.0) + pow(mouseDirection.y, 2.0) + pow(mouseDirection.z, 2.0);
+        float b = 2.0 * mouseDirection.x * v.x + 2.0 * mouseDirection.y * v.y + 2.0 * mouseDirection.z * v.z;
         float c = dot(v, v);
 
         float minT = -1.0 * b / (2.0 * a);

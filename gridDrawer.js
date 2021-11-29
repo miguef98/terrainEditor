@@ -1,10 +1,10 @@
 // Clase que dibuja la caja alrededor de la escena
-class BoxDrawer 
+class GridDrawer 
 {
 	constructor()
 	{
 		// 1. Compilamos el programa de shaders
-		this.prog = InitShaderProgram( boxVS, boxFS );
+		this.prog = InitShaderProgram( gridVS, gridFS );
 		
 		// 2. Obtenemos los IDs de las variables uniformes en los shaders
 		this.mvp = gl.getUniformLocation( this.prog, 'mvp' );
@@ -86,7 +86,7 @@ class BoxDrawer
 }
 
 // Vertex shader 
-var boxVS = `
+var gridVS = `
 	attribute vec3 pos;
 	uniform mat4 mvp;
 	void main()
@@ -96,7 +96,7 @@ var boxVS = `
 `;
 
 // Fragment shader 
-var boxFS = `
+var gridFS = `
 	precision mediump float;
 	void main()
 	{
