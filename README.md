@@ -17,3 +17,13 @@ ___
 **Usage**: The editor allows to create mountains (<img src='pencil.png' style='width: 1em; height:1em; vertical-align:middle; padding-bottom: 0.2em;'>) and valleys (<img src='eraser.png' style='width: 1em; height:1em; vertical-align:middle; padding-bottom: 0.2em;'>); lastly the position control tool (<img src='hand.png' style='width: 1em; height:1em; vertical-align:middle; padding-bottom: 0.2em;'>) allows for camera and zoom movements. In addition, we can add textures to the render for interesting visual effects.Three example textures are provided, 'textura.png', 'textura2.png' and 'textura3.png'.
 
 **Tecnical report**: Code is written in Javascript utilizing *WebGL* almost exclusively. I utilized mutiple rendering techniques such as the Blinn-Phong reflection model, Shadow mapping and mouse picking. Everything coded from scratch, without help of third-party libraries. In the file 'Final_CGrafica.pdf' a brief description of the implemented algorithms is found.
+
+---
+
+## Ejemplos generados
+
+<img src='examples/gen_textura.png'>
+
+<img src='examples/gen_textura2.png'>
+
+<img src='examples/gen_textura3.png'>
